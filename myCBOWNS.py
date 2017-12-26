@@ -61,8 +61,9 @@ class Corpus:
 class myCBOWNS(nn.Module):
     def __init__(self, vocab_size, embedding_dim, n_neg):
         super(myCBOWNS, self).__init__()
-        self.embeddings = nn.Embedding(vocab_size + 1, embedding_dim) # one more for padding
-        self.embeddings.weight = nn.Parameter(torch.FloatTensor(vocab_size+1, embedding_dim).uniform_(-0.5 / embedding_dim, 0.5 / embedding_dim))        
+        self.i_embeddings = nn.Embedding(vocab_size + 1, embedding_dim) # one more for padding
+        self.o_embeddings = nn.Embedding(vocab_size, embedding_dim) # one more for padding
+#        self.embeddings.weight = nn.Parameter(torch.FloatTensor(vocab_size+1, embedding_dim).uniform_(-0.5 / embedding_dim, 0.5 / embedding_dim))        
         self.vocab_size = vocab_size
         self.n_neg = n_neg
         self.sampling_weights = None
@@ -75,13 +76,13 @@ class myCBOWNS(nn.Module):
             var_context_wids = var_context_wids.cuda()
             var_target_wids = var_target_wids.cuda()        
             
-        context_embeddings = self.embeddings(var_context_wids)
+        context_embeddings = self.i_embeddings(var_context_wids)
         avg_ctxt_embeddings = context_embeddings.mean(dim=1).unsqueeze(2)
-        target_embeddings = self.embeddings(var_target_wids).unsqueeze(1)
+        target_embeddings = self.o_embeddings(var_target_wids).unsqueeze(1)
         var_neg_wids = Variable(torch.FloatTensor(batch_size, self.n_neg).uniform_(0, self.vocab_size-1).long())
         if USE_CUDA:
             var_neg_wids = var_neg_wids.cuda()
-        neg_embeddings = self.embeddings(var_neg_wids)
+        neg_embeddings = self.o_embeddings(var_neg_wids)
         
         pos_loss = torch.bmm(target_embeddings, avg_ctxt_embeddings).sigmoid().log().sum()
         neg_loss = torch.bmm(neg_embeddings.neg(), avg_ctxt_embeddings).sigmoid().log().sum()
@@ -132,7 +133,7 @@ embedding_dim = 50
 n_epochs = 10
 context_size = 5
 n_neg = 10
-batch_size = 256
+batch_size = 1024
 FIRST_TIME = False
 
 if FIRST_TIME:
@@ -144,7 +145,7 @@ losses = []
 model = myCBOWNS(vocab_size, embedding_dim, n_neg)
 if USE_CUDA:
     model = model.cuda()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
 start_time = time.time()
 for epoch in range(n_epochs):
@@ -160,7 +161,7 @@ for epoch in range(n_epochs):
         
     losses.append(total_loss[0])
     print('time cost: ' + timeSince(start_time))
-    np.savez(embedding_save_pt, C=model.embeddings.weight.data.cpu().numpy())
+    np.savez(embedding_save_pt, C=model.i_embeddings.weight.data.cpu().numpy(), B=model.o_embeddings.weight.data.cpu().numpy())
     
 
 print(losses)
