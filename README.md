@@ -1,1 +1,1 @@
-# myWord2Vec
+CBOW with negative sampling
