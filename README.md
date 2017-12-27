@@ -1,1 +1,1 @@
-CBOW with negative sampling
+# CBOW with negative sampling
