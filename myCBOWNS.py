@@ -9,9 +9,9 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 USE_CUDA = True
-TIE_EMBEDDINGS = False
+TIE_EMBEDDINGS = False #better not tie
 NEED_PREPROCESS = False
-USE_WEIGHTS = True
+USE_WEIGHTS = True #better use weights for sampling
 DATA_DIR = '/media/guangxu/O_o/UB/research/dataset/20newsgroups/'
 
 def timeSince(since):
@@ -70,8 +70,8 @@ class myCBOWNS(nn.Module):
         self.vocab_size = vocab_size
         self.n_neg = n_neg
         wf = np.array(wid_freq)
-        wf = wf / wf.sum()
         wf = np.power(wf, 0.75)
+        wf = wf / wf.sum()
         self.sampling_weights = torch.FloatTensor(wf)
     
     def forward(self, target_wids, context_wids):
@@ -89,7 +89,7 @@ class myCBOWNS(nn.Module):
         avg_ctxt_embeddings = context_embeddings.mean(dim=1).unsqueeze(2)
         target_embeddings = self.o_embeddings(var_target_wids).unsqueeze(1)
         if USE_WEIGHTS:
-            var_neg_wids = Variable(torch.multinomial(self.sampling_weights, batch_size*self.n_neg, replacement=True).view(batch_size, -1   ))
+            var_neg_wids = Variable(torch.multinomial(self.sampling_weights, batch_size*self.n_neg, replacement=True).view(batch_size, -1))
         else:
             var_neg_wids = Variable(torch.FloatTensor(batch_size, self.n_neg).uniform_(0, self.vocab_size-1).long())
         if USE_CUDA:
@@ -99,6 +99,8 @@ class myCBOWNS(nn.Module):
         pos_loss = torch.bmm(target_embeddings, avg_ctxt_embeddings).sigmoid().log().sum()
         neg_loss = torch.bmm(neg_embeddings.neg(), avg_ctxt_embeddings).sigmoid().log().sum()
         
+	# neg_loss is a sum, so is it in the word2vec paper. Note that in the paper, \sum expectation is k * expectations, and equals
+	# to \sum neg samples using monte carlo methods.
         return -(pos_loss + neg_loss)
     
     
